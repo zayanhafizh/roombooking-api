@@ -6,6 +6,8 @@ import io.jsonwebtoken.SignatureAlgorithm;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
 
 @Component
 public class JwtUtil {
@@ -14,14 +16,19 @@ public class JwtUtil {
     private String secretKey;
 
     // Metode untuk menghasilkan token JWT
-    public String generateToken(String username) {
+    public String generateToken(String username, String role) {
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("role", role); // Tambahkan role ke dalam claims
+
         return Jwts.builder()
+                .setClaims(claims)
                 .setSubject(username)
                 .setIssuedAt(new Date())
                 .setExpiration(new Date(System.currentTimeMillis() + 1000 * 60 * 60 * 10)) // Token berlaku selama 10 jam
-                .signWith(SignatureAlgorithm.HS256, secretKey.getBytes()) // Gunakan kunci dalam bentuk byte
+                .signWith(SignatureAlgorithm.HS256, secretKey.getBytes())
                 .compact();
     }
+
 
     // Metode untuk mengekstrak klaim dari token
     public Claims extractClaims(String token) {

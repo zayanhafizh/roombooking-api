@@ -7,6 +7,7 @@ import com.polstat.roombooking.entity.User;
 import com.polstat.roombooking.repository.RoleRepository;
 import com.polstat.roombooking.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -72,7 +73,7 @@ public class AuthController {
 
     // Endpoint Login
     @PostMapping("/login")
-    public Map<String, String> login(@RequestBody Map<String, String> loginRequest) {
+    public Map<String, Object> login(@RequestBody Map<String, String> loginRequest) {
         String email = loginRequest.get("email");
         String password = loginRequest.get("password");
 
@@ -81,11 +82,46 @@ public class AuthController {
                 new UsernamePasswordAuthenticationToken(email, password)
         );
 
-        // Jika autentikasi berhasil, buat token JWT
-        String token = jwtUtil.generateToken(email);
+        // Ambil pengguna dari database
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
 
-        Map<String, String> response = new HashMap<>();
+        // Buat token JWT dengan username dan role
+        String token = jwtUtil.generateToken(email, user.getRole().getName().name());
+
+        // Siapkan respons berisi token, email, dan role pengguna
+        Map<String, Object> response = new HashMap<>();
         response.put("token", token);
+        response.put("email", user.getEmail());
+        response.put("role", user.getRole().getName());
+
+        return response; // Pastikan ini dikembalikan
+    }
+
+    // Endpoint untuk mengubah kata sandi
+    @PutMapping("/change-password")
+    @PreAuthorize("hasAnyAuthority('USER','ADMIN','SUPERADMIN')")
+    public Map<String, String> changePassword(@RequestBody Map<String, String> passwordRequest, Authentication authentication) {
+        String oldPassword = passwordRequest.get("oldPassword");
+        String newPassword = passwordRequest.get("newPassword");
+
+        // Ambil email pengguna yang sedang login
+        String userEmail = authentication.getName();
+        User user = userRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+
+        // Verifikasi password lama
+        if (!passwordEncoder.matches(oldPassword, user.getPassword())) {
+            throw new IllegalArgumentException("Old password is incorrect");
+        }
+
+        // Update dengan password baru
+        user.setPassword(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
+
+        // Kembalikan respons sukses
+        Map<String, String> response = new HashMap<>();
+        response.put("message", "Password updated successfully");
         return response;
     }
 }

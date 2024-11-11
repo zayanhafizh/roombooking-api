@@ -21,15 +21,14 @@ public class BookingService {
     @Autowired
     private BookingRepository bookingRepository;
 
-    // Metode untuk membuat booking
     public Booking createBooking(BookingDTO bookingDTO, User user) {
-        // Cari ruangan berdasarkan ID
-        Room room = roomRepository.findById(bookingDTO.getRoomId())
+        // Cari ruangan berdasarkan nama
+        Room room = roomRepository.findByName(bookingDTO.getRoomName())
                 .orElseThrow(() -> new IllegalArgumentException("Room not found"));
 
         // Validasi ketersediaan ruangan
         List<Booking> overlappingBookings = bookingRepository
-                .findByRoomIdAndStartTimeBetween(bookingDTO.getRoomId(),
+                .findByRoomIdAndStartTimeBetween(room.getId(),
                         bookingDTO.getStartTime(),
                         bookingDTO.getEndTime());
         if (!overlappingBookings.isEmpty()) {
@@ -38,10 +37,10 @@ public class BookingService {
 
         // Buat dan simpan booking baru
         Booking booking = new Booking();
-        booking.setRoom(room);
+        booking.setRoom(room); // Pastikan room sudah di-set
         booking.setStartTime(bookingDTO.getStartTime());
         booking.setEndTime(bookingDTO.getEndTime());
-        booking.setBookedBy(user.getEmail()); // Menggunakan email pengguna yang sedang login
+        booking.setBookedBy(user.getEmail());
 
         return bookingRepository.save(booking);
     }
@@ -52,12 +51,13 @@ public class BookingService {
         Booking existingBooking = bookingRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Booking not found"));
 
-        Room room = roomRepository.findById(bookingDTO.getRoomId())
+        // Cari ruangan berdasarkan nama, bukan ID
+        Room room = roomRepository.findByName(bookingDTO.getRoomName())
                 .orElseThrow(() -> new IllegalArgumentException("Room not found"));
 
         // Validasi ketersediaan ruangan untuk periode yang diperbarui
         List<Booking> overlappingBookings = bookingRepository
-                .findByRoomIdAndStartTimeBetween(bookingDTO.getRoomId(),
+                .findByRoomIdAndStartTimeBetween(room.getId(), // Ambil ID dari room yang ditemukan
                         bookingDTO.getStartTime(),
                         bookingDTO.getEndTime());
         if (!overlappingBookings.isEmpty() && !overlappingBookings.contains(existingBooking)) {
@@ -77,5 +77,30 @@ public class BookingService {
         Booking booking = bookingRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Booking not found"));
         bookingRepository.delete(booking);
+    }
+
+    // Metode untuk melihat semua booking
+    public List<Booking> getAllBookings() {
+        return bookingRepository.findAll();
+    }
+
+    // Metode untuk melihat semua booking berdasarkan pengguna
+    public List<Booking> getBookingsByUser(String bookedBy) {
+        return bookingRepository.findByBookedBy(bookedBy);
+    }
+
+    // Metode untuk mendapatkan semua booking berdasarkan ruangan
+    public List<Booking> getBookingsByRoom(Long roomId) {
+        return bookingRepository.findByRoomId(roomId);
+    }
+
+    // Metode untuk mendapatkan booking pada periode waktu tertentu
+    public List<Booking> getBookingsWithinPeriod(LocalDateTime start, LocalDateTime end) {
+        return bookingRepository.findByStartTimeAfterAndEndTimeBefore(start, end);
+    }
+
+    // Metode untuk mendapatkan booking pada tanggal tertentu
+    public List<Booking> getBookingsForDate(LocalDateTime startOfDay, LocalDateTime endOfDay) {
+        return bookingRepository.findByStartTimeBetween(startOfDay, endOfDay);
     }
 }

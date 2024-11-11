@@ -7,10 +7,14 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 @Service
 public class CustomUserDetailsService implements UserDetailsService {
 
     private final UserRepository userRepository;
+    private static final Logger logger = LoggerFactory.getLogger(CustomUserDetailsService.class);
 
     public CustomUserDetailsService(UserRepository userRepository) {
         this.userRepository = userRepository;
@@ -21,11 +25,13 @@ public class CustomUserDetailsService implements UserDetailsService {
         User user = userRepository.findByEmail(username)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found"));
 
-        // Buat UserDetails menggunakan informasi dari entitas User
+        // Gunakan nama role langsung dari database
+        String authority = user.getRole().getName().name();
+
         return org.springframework.security.core.userdetails.User.builder()
                 .username(user.getEmail())
-                .password(user.getPassword()) // Pastikan password sudah terenkripsi
-                .roles(String.valueOf(user.getRole().getName())) // Ambil peran dari entitas Role
+                .password(user.getPassword())
+                .authorities(authority) // Gunakan format dari database
                 .build();
     }
 }

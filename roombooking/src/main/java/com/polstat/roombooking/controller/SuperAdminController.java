@@ -27,7 +27,7 @@ public class SuperAdminController {
     @Autowired
     private RoleRepository roleRepository;
 
-    @PreAuthorize("hasRole('SUPERADMIN')")
+    @PreAuthorize("hasAuthority('SUPERADMIN')")
     @PutMapping("/update-role/{userId}")
     public Map<String, String> updateUserRole(@PathVariable Long userId, @RequestBody Map<String, String> roleRequest) {
         String role = roleRequest.get("role");
@@ -40,8 +40,8 @@ public class SuperAdminController {
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
 
         // Hanya bisa mengubah ke peran "ADMIN"
-        if (!role.equalsIgnoreCase("ADMIN")) {
-            throw new IllegalArgumentException("Only ADMIN role can be assigned");
+        if (role.equalsIgnoreCase("SUPERADMIN")) {
+            throw new IllegalArgumentException("Only ADMIN and USER role can be assigned");
         }
 
         // Dapatkan peran "ADMIN" dari database
@@ -54,12 +54,12 @@ public class SuperAdminController {
 
         // Kembalikan respons sukses
         Map<String, String> response = new HashMap<>();
-        response.put("message", "User role updated to ADMIN successfully");
+        response.put("message", "User role updated to " +role+ " successfully");
         return response;
     }
 
     @DeleteMapping("/users/{id}")
-    @PreAuthorize("hasRole('SUPERADMIN')")
+    @PreAuthorize("hasAuthority('SUPERADMIN')")
     public ResponseEntity<Void> deleteUser(@PathVariable Long id) {
         userService.deleteUserById(id);
         return ResponseEntity.noContent().build();

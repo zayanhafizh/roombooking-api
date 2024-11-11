@@ -5,7 +5,7 @@ import java.time.LocalDateTime;
 
 @Data
 public class BookingDTO {
-    private Long roomId;
+    private String roomName;
     private LocalDateTime startTime;
     private LocalDateTime endTime;
     private String bookedBy;

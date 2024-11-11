@@ -14,4 +14,9 @@ public class Role {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private RoleType name;
+
+    // Tambahkan metode helper
+    public String getRoleNameAsString() {
+        return this.name.name();
+    }
 }
