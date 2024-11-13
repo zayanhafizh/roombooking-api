@@ -59,7 +59,7 @@ public class AuthController {
 
         // Validasi domain email
         if (!email.endsWith("@stis.ac.id")) {
-            throw new IllegalArgumentException("Email must be from the domain stis.ac.id");
+            throw new IllegalArgumentException("Email must be stis email");
         }
 
         if (userRepository.findByEmail(email).isPresent()) {
