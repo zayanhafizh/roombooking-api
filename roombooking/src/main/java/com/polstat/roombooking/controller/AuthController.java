@@ -179,11 +179,11 @@ public class AuthController {
     @PutMapping("/change-password")
     @PreAuthorize("hasAnyAuthority('USER','ADMIN','SUPERADMIN')")
     public Map<String, String> changePassword(@RequestBody Map<String, String> passwordRequest, Authentication authentication) {
-        String currentPassword = passwordRequest.get("currentPassword");
+        String oldPassword = passwordRequest.get("oldPassword");
         String newPassword = passwordRequest.get("newPassword");
 
-        if (currentPassword == null || newPassword == null) {
-            throw new IllegalArgumentException("Current password and new password must not be null");
+        if (oldPassword == null || newPassword == null) {
+            throw new IllegalArgumentException("Old password and new password must not be null");
         }
 
         String userEmail = authentication.getName();
@@ -191,8 +191,8 @@ public class AuthController {
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
 
         // Check if the current password is correct
-        if (!passwordEncoder.matches(currentPassword, user.getPassword())) {
-            throw new IllegalArgumentException("Current password is incorrect");
+        if (!passwordEncoder.matches(oldPassword, user.getPassword())) {
+            throw new IllegalArgumentException("Old password is incorrect");
         }
 
         // Update the password
