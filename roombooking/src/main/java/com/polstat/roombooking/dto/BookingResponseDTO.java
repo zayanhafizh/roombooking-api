@@ -10,10 +10,11 @@ public class BookingResponseDTO {
     private String nama;
     private String nim;
     private String kelas;
+    private boolean isAcc;
 
     // Constructor
     public BookingResponseDTO(String roomName, LocalDateTime startTime, LocalDateTime endTime,
-                              String userEmail, String nama, String nim, String kelas) {
+                              String userEmail, String nama, String nim, String kelas,boolean isAcc) {
         this.roomName = roomName;
         this.startTime = startTime;
         this.endTime = endTime;
@@ -21,6 +22,7 @@ public class BookingResponseDTO {
         this.nama = nama;
         this.nim = nim;
         this.kelas = kelas;
+        this.isAcc = isAcc;
     }
 
     // Getters and Setters
@@ -78,5 +80,13 @@ public class BookingResponseDTO {
 
     public void setKelas(String kelas) {
         this.kelas = kelas;
+    }
+
+    public boolean isAcc() {
+        return isAcc;
+    }
+
+    public void setAcc(boolean isAcc) {
+        this.isAcc = isAcc;
     }
 }

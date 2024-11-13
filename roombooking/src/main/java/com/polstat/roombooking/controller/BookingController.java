@@ -55,7 +55,8 @@ public class BookingController {
                             booking.getUser().getEmail(),
                             nama,
                             nim,
-                            kelas
+                            kelas,
+                            booking.isAcc() // Tambahkan flag isAcc
                     );
                 })
                 .collect(Collectors.toList());
@@ -107,7 +108,8 @@ public class BookingController {
                             booking.getUser().getEmail(),
                             nama,
                             nim,
-                            kelas
+                            kelas,
+                            booking.isAcc() // Tambahkan flag isAcc
                     );
                 })
                 .collect(Collectors.toList());
@@ -138,7 +140,7 @@ public class BookingController {
             @ApiResponse(responseCode = "200", description = "Booking approved successfully", content = @Content),
             @ApiResponse(responseCode = "404", description = "Booking not found", content = @Content)
     })
-    @PatchMapping("/approve/{id}")
+    @PutMapping("/approve/{id}")
     @PreAuthorize("hasAuthority('ADMIN') or hasAuthority('SUPERADMIN')")
     public ResponseEntity<String> approveBooking(@PathVariable Long id) {
         bookingService.approveBooking(id);
