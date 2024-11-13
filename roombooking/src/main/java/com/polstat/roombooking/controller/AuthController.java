@@ -168,4 +168,40 @@ public class AuthController {
         response.put("message", "Profile updated successfully");
         return response;
     }
+
+    @Operation(summary = "Change user password")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Password changed successfully",
+                    content = @Content(mediaType = "application/json")),
+            @ApiResponse(responseCode = "400", description = "Invalid request", content = @Content),
+            @ApiResponse(responseCode = "403", description = "Forbidden", content = @Content)
+    })
+    @PutMapping("/change-password")
+    @PreAuthorize("hasAnyAuthority('USER','ADMIN','SUPERADMIN')")
+    public Map<String, String> changePassword(@RequestBody Map<String, String> passwordRequest, Authentication authentication) {
+        String currentPassword = passwordRequest.get("currentPassword");
+        String newPassword = passwordRequest.get("newPassword");
+
+        if (currentPassword == null || newPassword == null) {
+            throw new IllegalArgumentException("Current password and new password must not be null");
+        }
+
+        String userEmail = authentication.getName();
+        User user = userRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+
+        // Check if the current password is correct
+        if (!passwordEncoder.matches(currentPassword, user.getPassword())) {
+            throw new IllegalArgumentException("Current password is incorrect");
+        }
+
+        // Update the password
+        user.setPassword(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
+
+        Map<String, String> response = new HashMap<>();
+        response.put("message", "Password changed successfully");
+        return response;
+    }
+
 }

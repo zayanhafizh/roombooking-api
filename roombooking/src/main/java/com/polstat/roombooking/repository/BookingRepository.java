@@ -20,6 +20,5 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
 
     List<Booking> findByStartTimeBetween(LocalDateTime startOfDay, LocalDateTime endOfDay);
 
-    // New Method: Find bookings that have not been approved
     List<Booking> findByIsAccFalse();
 }

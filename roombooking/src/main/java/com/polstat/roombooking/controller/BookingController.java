@@ -80,6 +80,41 @@ public class BookingController {
         return ResponseEntity.ok(booking);
     }
 
+    @Operation(summary = "Get bookings created by the authenticated user")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "User's bookings retrieved successfully",
+                    content = @Content(mediaType = "application/json", schema = @Schema(implementation = BookingResponseDTO.class))),
+            @ApiResponse(responseCode = "404", description = "User not found", content = @Content)
+    })
+    @GetMapping("/my-bookings")
+    @PreAuthorize("hasAnyAuthority('USER','ADMIN','SUPERADMIN')")
+    public ResponseEntity<List<BookingResponseDTO>> getUserBookings(Authentication authentication) {
+        String userEmail = authentication.getName();
+        User user = userRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+
+        List<Booking> userBookings = bookingService.getUserBookings(user);
+        List<BookingResponseDTO> bookingResponseDTOs = userBookings.stream()
+                .map(booking -> {
+                    String nama = booking.getUser().getIdentity() != null ? booking.getUser().getIdentity().getNama() : "Unknown";
+                    String nim = booking.getUser().getIdentity() != null ? booking.getUser().getIdentity().getNim() : "Unknown";
+                    String kelas = booking.getUser().getIdentity() != null ? booking.getUser().getIdentity().getKelas() : "Unknown";
+
+                    return new BookingResponseDTO(
+                            booking.getRoom().getName(),
+                            booking.getStartTime(),
+                            booking.getEndTime(),
+                            booking.getUser().getEmail(),
+                            nama,
+                            nim,
+                            kelas
+                    );
+                })
+                .collect(Collectors.toList());
+
+        return ResponseEntity.ok(bookingResponseDTOs);
+    }
+
     @Operation(summary = "Update an existing booking")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Booking updated successfully",

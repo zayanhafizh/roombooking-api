@@ -33,6 +33,13 @@ public class BookingService {
     public Booking createBooking(BookingDTO bookingDTO, User user) {
         LocalDateTime now = LocalDateTime.now();
 
+        //Validasi start sama end bookingnya ada
+        if (bookingDTO.getStartTime() == null ||
+                bookingDTO.getEndTime() == null ||
+            bookingDTO.getRoomName() == null) {
+            throw new IllegalArgumentException("Please fulfill the request data");
+        }
+
         // Validasi: Pastikan startTime dan endTime tidak berada di masa lalu
         if (bookingDTO.getStartTime().isBefore(now) || bookingDTO.getEndTime().isBefore(now)) {
             throw new IllegalArgumentException("Booking cannot be made for past dates");
@@ -159,5 +166,10 @@ public class BookingService {
                 .filter(room -> room.isAvailable()) // Check if the room is available
                 .filter(room -> !bookedRoomIds.contains(room.getId())) // Check if the room is not booked
                 .collect(Collectors.toList());
+    }
+
+    //Method to get user booking
+    public List<Booking> getUserBookings(User user) {
+        return bookingRepository.findByUser_Email(user.getEmail());
     }
 }
