@@ -31,9 +31,12 @@ public class JwtRequestFilter extends OncePerRequestFilter {
             throws ServletException, IOException {
         final String requestTokenHeader = request.getHeader("Authorization");
 
-        // Melewati filter untuk endpoint login atau endpoint lain yang tidak memerlukan autentikasi
+        // Melewati filter untuk endpoint login, register, Swagger UI, dan OpenAPI
         String requestPath = request.getRequestURI();
-        if (requestPath.equals("/api/auth/login") || requestPath.equals("/api/auth/register")) {
+        if (requestPath.equals("/api/auth/login") ||
+                requestPath.equals("/api/auth/register") ||
+                requestPath.startsWith("/swagger-ui") ||
+                requestPath.startsWith("/v3/api-docs")) {
             chain.doFilter(request, response);
             return;
         }
@@ -74,3 +77,4 @@ public class JwtRequestFilter extends OncePerRequestFilter {
     }
 
 }
+

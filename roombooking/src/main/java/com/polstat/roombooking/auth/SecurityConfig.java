@@ -32,7 +32,11 @@ public class SecurityConfig {
         http
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/auth/**").permitAll()
+                        .requestMatchers(
+                                "/api/auth/**", // Izinkan akses ke endpoint autentikasi
+                                "/swagger-ui/**", // Izinkan akses ke Swagger UI
+                                "/v3/api-docs/**" // Izinkan akses ke dokumentasi OpenAPI
+                        ).permitAll()
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtRequestFilter, UsernamePasswordAuthenticationFilter.class);

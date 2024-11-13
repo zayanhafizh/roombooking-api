@@ -7,6 +7,11 @@ import com.polstat.roombooking.entity.Room;
 import com.polstat.roombooking.entity.User;
 import com.polstat.roombooking.service.BookingService;
 import com.polstat.roombooking.repository.UserRepository;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -27,12 +32,16 @@ public class BookingController {
     @Autowired
     private UserRepository userRepository;
 
+    @Operation(summary = "Get all bookings")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Bookings retrieved successfully",
+                    content = @Content(mediaType = "application/json", schema = @Schema(implementation = BookingResponseDTO.class)))
+    })
     @GetMapping("/all")
     @PreAuthorize("hasAnyAuthority('ADMIN','SUPERADMIN')")
     public ResponseEntity<List<BookingResponseDTO>> getAllBookings() {
         List<Booking> bookings = bookingService.getAllBookings();
 
-        // Konversi dari Booking ke BookingResponseDTO
         List<BookingResponseDTO> bookingResponseDTOs = bookings.stream()
                 .map(booking -> {
                     String nama = booking.getUser().getIdentity() != null ? booking.getUser().getIdentity().getNama() : "Unknown";
@@ -54,7 +63,12 @@ public class BookingController {
         return ResponseEntity.ok(bookingResponseDTOs);
     }
 
-    // Endpoint to create a new booking
+    @Operation(summary = "Create a new booking")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Booking created successfully",
+                    content = @Content(mediaType = "application/json", schema = @Schema(implementation = Booking.class))),
+            @ApiResponse(responseCode = "400", description = "Invalid booking data", content = @Content)
+    })
     @PostMapping
     @PreAuthorize("hasAnyAuthority('USER','ADMIN','SUPERADMIN')")
     public ResponseEntity<Booking> createBooking(@RequestBody BookingDTO bookingDTO, Authentication authentication) {
@@ -66,7 +80,13 @@ public class BookingController {
         return ResponseEntity.ok(booking);
     }
 
-    // Endpoint to update an existing booking
+    @Operation(summary = "Update an existing booking")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Booking updated successfully",
+                    content = @Content(mediaType = "application/json", schema = @Schema(implementation = Booking.class))),
+            @ApiResponse(responseCode = "404", description = "Booking not found", content = @Content),
+            @ApiResponse(responseCode = "400", description = "Invalid booking data", content = @Content)
+    })
     @PatchMapping("/{id}")
     @PreAuthorize("hasAnyAuthority('ADMIN','SUPERADMIN')")
     public ResponseEntity<Booking> updateBooking(@PathVariable Long id, @RequestBody BookingDTO bookingDTO, Authentication authentication) {
@@ -78,7 +98,11 @@ public class BookingController {
         return ResponseEntity.ok(updatedBooking);
     }
 
-    // Endpoint to approve a booking
+    @Operation(summary = "Approve a booking")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Booking approved successfully", content = @Content),
+            @ApiResponse(responseCode = "404", description = "Booking not found", content = @Content)
+    })
     @PatchMapping("/approve/{id}")
     @PreAuthorize("hasAuthority('ADMIN') or hasAuthority('SUPERADMIN')")
     public ResponseEntity<String> approveBooking(@PathVariable Long id) {
@@ -86,7 +110,11 @@ public class BookingController {
         return ResponseEntity.ok("Booking approved successfully");
     }
 
-    // Endpoint to delete a booking
+    @Operation(summary = "Delete a booking")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "204", description = "Booking deleted successfully", content = @Content),
+            @ApiResponse(responseCode = "404", description = "Booking not found", content = @Content)
+    })
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAnyAuthority('ADMIN','SUPERADMIN')")
     public ResponseEntity<Void> deleteBooking(@PathVariable Long id) {
@@ -94,7 +122,11 @@ public class BookingController {
         return ResponseEntity.noContent().build();
     }
 
-    // Endpoint to get available rooms on a specific date
+    @Operation(summary = "Get available rooms on a specific date")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Available rooms retrieved successfully",
+                    content = @Content(mediaType = "application/json", schema = @Schema(implementation = Room.class)))
+    })
     @GetMapping("/available-rooms")
     @PreAuthorize("hasAnyAuthority('USER','ADMIN','SUPERADMIN')")
     public ResponseEntity<List<Room>> getAvailableRooms(@RequestParam String date) {

@@ -7,6 +7,11 @@ import com.polstat.roombooking.entity.RoleType;
 import com.polstat.roombooking.entity.User;
 import com.polstat.roombooking.repository.RoleRepository;
 import com.polstat.roombooking.repository.UserRepository;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -37,7 +42,12 @@ public class AuthController {
     @Autowired
     private PasswordEncoder passwordEncoder;
 
-    // Register endpoint
+    @Operation(summary = "Register a new user")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "User registered successfully",
+                    content = @Content(mediaType = "application/json")),
+            @ApiResponse(responseCode = "400", description = "Invalid data", content = @Content)
+    })
     @PostMapping("/register")
     public Map<String, String> register(@RequestBody Map<String, String> registrationRequest) {
         String email = registrationRequest.get("email");
@@ -45,6 +55,11 @@ public class AuthController {
 
         if (email == null || password == null) {
             throw new IllegalArgumentException("Email and password must not be null");
+        }
+
+        // Validasi domain email
+        if (!email.endsWith("@stis.ac.id")) {
+            throw new IllegalArgumentException("Email must be from the domain stis.ac.id");
         }
 
         if (userRepository.findByEmail(email).isPresent()) {
@@ -55,7 +70,6 @@ public class AuthController {
         Role userRole = roleRepository.findByName(RoleType.USER)
                 .orElseThrow(() -> new IllegalArgumentException("Role USER not found"));
 
-        // Create new user without identity details
         User user = new User();
         user.setEmail(email);
         user.setPassword(encodedPassword);
@@ -68,13 +82,18 @@ public class AuthController {
         return response;
     }
 
-    // Login endpoint
+    @Operation(summary = "Login a user and get a JWT token")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Login successful",
+                    content = @Content(mediaType = "application/json")),
+            @ApiResponse(responseCode = "400", description = "Invalid credentials", content = @Content)
+    })
     @PostMapping("/login")
     public Map<String, Object> login(@RequestBody Map<String, String> loginRequest) {
         String email = loginRequest.get("email");
         String password = loginRequest.get("password");
 
-        Authentication authentication = authenticationManager.authenticate(
+        authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(email, password)
         );
 
@@ -91,7 +110,12 @@ public class AuthController {
         return response;
     }
 
-    // Get Profile endpoint
+    @Operation(summary = "Get user profile")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Profile retrieved successfully",
+                    content = @Content(mediaType = "application/json")),
+            @ApiResponse(responseCode = "403", description = "Forbidden", content = @Content)
+    })
     @GetMapping("/profile")
     @PreAuthorize("hasAnyAuthority('USER','ADMIN','SUPERADMIN')")
     public Map<String, Object> getProfile(Authentication authentication) {
@@ -115,7 +139,12 @@ public class AuthController {
         return profile;
     }
 
-    // Update Profile endpoint (for adding/updating nama, nim, and kelas)
+    @Operation(summary = "Update user profile")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Profile updated successfully",
+                    content = @Content(mediaType = "application/json")),
+            @ApiResponse(responseCode = "403", description = "Forbidden", content = @Content)
+    })
     @PatchMapping("/profile")
     @PreAuthorize("hasAnyAuthority('USER','ADMIN','SUPERADMIN')")
     public Map<String, String> updateProfile(@RequestBody Map<String, String> profileRequest, Authentication authentication) {
@@ -133,7 +162,7 @@ public class AuthController {
         identity.setNim(profileRequest.get("nim"));
         identity.setKelas(profileRequest.get("kelas"));
 
-        userRepository.save(user); // Save the user with updated or new identity
+        userRepository.save(user);
 
         Map<String, String> response = new HashMap<>();
         response.put("message", "Profile updated successfully");
