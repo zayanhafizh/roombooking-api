@@ -23,7 +23,13 @@ public class Booking {
     @Column(nullable = false)
     private LocalDateTime endTime;
 
-    @Column(nullable = false)
-    private String bookedBy;
-}
+    @ManyToOne
+    @JoinColumn(name = "user_id", nullable = false)
+    private User user;
 
+    @Column(nullable = false)
+    private boolean isAcc = false; // Default to not approved
+
+    @Column(nullable = false)
+    private LocalDateTime createdAt; // Timestamp for when the booking was created
+}

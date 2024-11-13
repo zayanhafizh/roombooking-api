@@ -7,6 +7,7 @@ import lombok.Data;
 @Entity
 @Table(name = "users")
 public class User {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -20,4 +21,18 @@ public class User {
     @ManyToOne
     @JoinColumn(name = "role_id", nullable = false)
     private Role role;
+
+    // Adding a one-to-one relationship with Identity
+    @OneToOne(cascade = CascadeType.ALL)
+    @JoinColumn(name = "identity_id", referencedColumnName = "id")
+    private Identity identity;
+
+    // Getter and Setter for Identity
+    public Identity getIdentity() {
+        return identity;
+    }
+
+    public void setIdentity(Identity identity) {
+        this.identity = identity;
+    }
 }

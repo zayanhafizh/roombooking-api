@@ -1,6 +1,7 @@
 package com.polstat.roombooking.controller;
 
 import com.polstat.roombooking.auth.JwtUtil;
+import com.polstat.roombooking.entity.Identity;
 import com.polstat.roombooking.entity.Role;
 import com.polstat.roombooking.entity.RoleType;
 import com.polstat.roombooking.entity.User;
@@ -36,6 +37,7 @@ public class AuthController {
     @Autowired
     private PasswordEncoder passwordEncoder;
 
+    // Register endpoint
     @PostMapping("/register")
     public Map<String, String> register(@RequestBody Map<String, String> registrationRequest) {
         String email = registrationRequest.get("email");
@@ -45,19 +47,15 @@ public class AuthController {
             throw new IllegalArgumentException("Email and password must not be null");
         }
 
-        // Periksa apakah pengguna sudah ada
         if (userRepository.findByEmail(email).isPresent()) {
             throw new IllegalArgumentException("Email already registered");
         }
 
-        // Enkripsi password
         String encodedPassword = passwordEncoder.encode(password);
-
-        // Tetapkan peran "USER" secara default
         Role userRole = roleRepository.findByName(RoleType.USER)
                 .orElseThrow(() -> new IllegalArgumentException("Role USER not found"));
 
-        // Buat dan simpan pengguna baru
+        // Create new user without identity details
         User user = new User();
         user.setEmail(email);
         user.setPassword(encodedPassword);
@@ -65,63 +63,80 @@ public class AuthController {
 
         userRepository.save(user);
 
-        // Kembalikan respons sukses
         Map<String, String> response = new HashMap<>();
         response.put("message", "User registered successfully");
         return response;
     }
 
-    // Endpoint Login
+    // Login endpoint
     @PostMapping("/login")
     public Map<String, Object> login(@RequestBody Map<String, String> loginRequest) {
         String email = loginRequest.get("email");
         String password = loginRequest.get("password");
 
-        // Autentikasi pengguna
         Authentication authentication = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(email, password)
         );
 
-        // Ambil pengguna dari database
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
 
-        // Buat token JWT dengan username dan role
         String token = jwtUtil.generateToken(email, user.getRole().getName().name());
 
-        // Siapkan respons berisi token, email, dan role pengguna
         Map<String, Object> response = new HashMap<>();
         response.put("token", token);
         response.put("email", user.getEmail());
         response.put("role", user.getRole().getName());
 
-        return response; // Pastikan ini dikembalikan
+        return response;
     }
 
-    // Endpoint untuk mengubah kata sandi
-    @PutMapping("/change-password")
+    // Get Profile endpoint
+    @GetMapping("/profile")
     @PreAuthorize("hasAnyAuthority('USER','ADMIN','SUPERADMIN')")
-    public Map<String, String> changePassword(@RequestBody Map<String, String> passwordRequest, Authentication authentication) {
-        String oldPassword = passwordRequest.get("oldPassword");
-        String newPassword = passwordRequest.get("newPassword");
-
-        // Ambil email pengguna yang sedang login
+    public Map<String, Object> getProfile(Authentication authentication) {
         String userEmail = authentication.getName();
         User user = userRepository.findByEmail(userEmail)
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
 
-        // Verifikasi password lama
-        if (!passwordEncoder.matches(oldPassword, user.getPassword())) {
-            throw new IllegalArgumentException("Old password is incorrect");
+        Map<String, Object> profile = new HashMap<>();
+        profile.put("email", user.getEmail());
+
+        if (user.getIdentity() != null) {
+            profile.put("nama", user.getIdentity().getNama());
+            profile.put("nim", user.getIdentity().getNim());
+            profile.put("kelas", user.getIdentity().getKelas());
+        } else {
+            profile.put("nama", "");
+            profile.put("nim", "");
+            profile.put("kelas", "");
         }
 
-        // Update dengan password baru
-        user.setPassword(passwordEncoder.encode(newPassword));
-        userRepository.save(user);
+        return profile;
+    }
 
-        // Kembalikan respons sukses
+    // Update Profile endpoint (for adding/updating nama, nim, and kelas)
+    @PatchMapping("/profile")
+    @PreAuthorize("hasAnyAuthority('USER','ADMIN','SUPERADMIN')")
+    public Map<String, String> updateProfile(@RequestBody Map<String, String> profileRequest, Authentication authentication) {
+        String userEmail = authentication.getName();
+        User user = userRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+
+        Identity identity = user.getIdentity();
+        if (identity == null) {
+            identity = new Identity();
+            user.setIdentity(identity);
+        }
+
+        identity.setNama(profileRequest.get("nama"));
+        identity.setNim(profileRequest.get("nim"));
+        identity.setKelas(profileRequest.get("kelas"));
+
+        userRepository.save(user); // Save the user with updated or new identity
+
         Map<String, String> response = new HashMap<>();
-        response.put("message", "Password updated successfully");
+        response.put("message", "Profile updated successfully");
         return response;
     }
 }

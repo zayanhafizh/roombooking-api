@@ -1,16 +1,19 @@
 package com.polstat.roombooking.service;
 
 import com.polstat.roombooking.dto.BookingDTO;
-import com.polstat.roombooking.entity.User;
-import com.polstat.roombooking.exception.RoomNotAvailableException;
 import com.polstat.roombooking.entity.Booking;
 import com.polstat.roombooking.entity.Room;
+import com.polstat.roombooking.entity.User;
+import com.polstat.roombooking.exception.RoomNotAvailableException;
 import com.polstat.roombooking.repository.BookingRepository;
 import com.polstat.roombooking.repository.RoomRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.stream.Collectors; // Import Collectors
 
 @Service
 public class BookingService {
@@ -21,45 +24,98 @@ public class BookingService {
     @Autowired
     private BookingRepository bookingRepository;
 
+    //Method to get all booking
+    public List<Booking> getAllBookings() {
+        return bookingRepository.findAll();
+    }
+
+    // Method to create a new booking
     public Booking createBooking(BookingDTO bookingDTO, User user) {
-        // Cari ruangan berdasarkan nama
+        LocalDateTime now = LocalDateTime.now();
+
+        // Validasi: Pastikan startTime dan endTime tidak berada di masa lalu
+        if (bookingDTO.getStartTime().isBefore(now) || bookingDTO.getEndTime().isBefore(now)) {
+            throw new IllegalArgumentException("Booking cannot be made for past dates");
+        }
+
+        // Validasi: Pastikan endTime tidak lebih awal dari startTime
+        if (bookingDTO.getEndTime().isBefore(bookingDTO.getStartTime())) {
+            throw new IllegalArgumentException("End time cannot be earlier than start time");
+        }
+
+        // Validasi: Pastikan durasi booking tidak lebih dari 1 hari
+        if (ChronoUnit.DAYS.between(bookingDTO.getStartTime(), bookingDTO.getEndTime()) >= 1) {
+            throw new IllegalArgumentException("Booking duration cannot exceed one day");
+        }
+
         Room room = roomRepository.findByName(bookingDTO.getRoomName())
                 .orElseThrow(() -> new IllegalArgumentException("Room not found"));
 
-        // Validasi ketersediaan ruangan
+        // Check if the room is available
+        if (!room.isAvailable()) {
+            throw new RoomNotAvailableException("Room is currently not available for booking");
+        }
+
+        // Filter overlapping bookings to only include those that are approved
         List<Booking> overlappingBookings = bookingRepository
-                .findByRoomIdAndStartTimeBetween(room.getId(),
-                        bookingDTO.getStartTime(),
-                        bookingDTO.getEndTime());
+                .findByRoomIdAndStartTimeBetween(room.getId(), bookingDTO.getStartTime(), bookingDTO.getEndTime())
+                .stream()
+                .filter(Booking::isAcc) // Only consider approved bookings for conflict check
+                .collect(Collectors.toList());
+
         if (!overlappingBookings.isEmpty()) {
             throw new RoomNotAvailableException("Room is not available for the selected time period");
         }
 
-        // Buat dan simpan booking baru
         Booking booking = new Booking();
-        booking.setRoom(room); // Pastikan room sudah di-set
+        booking.setRoom(room);
         booking.setStartTime(bookingDTO.getStartTime());
         booking.setEndTime(bookingDTO.getEndTime());
-        booking.setBookedBy(user.getEmail());
+        booking.setUser(user);
+        booking.setAcc(false); // Default to not approved
+        booking.setCreatedAt(now); // Set the createdAt timestamp
 
         return bookingRepository.save(booking);
     }
 
+    // Method to update an existing booking
+    public Booking updateBooking(Long id, BookingDTO bookingDTO, User user) {
+        LocalDateTime now = LocalDateTime.now();
 
-    // Metode untuk memperbarui booking
-    public Booking updateBooking(Long id, BookingDTO bookingDTO) {
+        // Validasi: Pastikan startTime dan endTime tidak berada di masa lalu
+        if (bookingDTO.getStartTime().isBefore(now) || bookingDTO.getEndTime().isBefore(now)) {
+            throw new IllegalArgumentException("Booking cannot be made for past dates");
+        }
+
+        // Validasi: Pastikan endTime tidak lebih awal dari startTime
+        if (bookingDTO.getEndTime().isBefore(bookingDTO.getStartTime())) {
+            throw new IllegalArgumentException("End time cannot be earlier than start time");
+        }
+
+        // Validasi: Pastikan durasi booking tidak lebih dari 1 hari
+        if (ChronoUnit.DAYS.between(bookingDTO.getStartTime(), bookingDTO.getEndTime()) >= 1) {
+            throw new IllegalArgumentException("Booking duration cannot exceed one day");
+        }
+
         Booking existingBooking = bookingRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Booking not found"));
 
-        // Cari ruangan berdasarkan nama, bukan ID
         Room room = roomRepository.findByName(bookingDTO.getRoomName())
                 .orElseThrow(() -> new IllegalArgumentException("Room not found"));
 
-        // Validasi ketersediaan ruangan untuk periode yang diperbarui
+        // Check if the room is available
+        if (!room.isAvailable()) {
+            throw new RoomNotAvailableException("Room is currently not available for booking");
+        }
+
+        // Filter overlapping bookings to only include those that are approved
         List<Booking> overlappingBookings = bookingRepository
-                .findByRoomIdAndStartTimeBetween(room.getId(), // Ambil ID dari room yang ditemukan
-                        bookingDTO.getStartTime(),
-                        bookingDTO.getEndTime());
+                .findByRoomIdAndStartTimeBetween(room.getId(), bookingDTO.getStartTime(), bookingDTO.getEndTime())
+                .stream()
+                .filter(Booking::isAcc) // Only consider approved bookings for conflict check
+                .collect(Collectors.toList());
+
+        // Ensure we are not counting the existing booking as a conflict
         if (!overlappingBookings.isEmpty() && !overlappingBookings.contains(existingBooking)) {
             throw new RoomNotAvailableException("Room is not available for the selected time period");
         }
@@ -67,40 +123,41 @@ public class BookingService {
         existingBooking.setRoom(room);
         existingBooking.setStartTime(bookingDTO.getStartTime());
         existingBooking.setEndTime(bookingDTO.getEndTime());
-        existingBooking.setBookedBy(bookingDTO.getBookedBy());
+        existingBooking.setUser(user); // Update the user who is making the booking
 
         return bookingRepository.save(existingBooking);
     }
 
-    // Metode untuk menghapus booking
+    // Method to approve a booking
+    public void approveBooking(Long bookingId) {
+        Booking booking = bookingRepository.findById(bookingId)
+                .orElseThrow(() -> new IllegalArgumentException("Booking not found"));
+        booking.setAcc(true); // Use setAcc to set booking as approved
+        bookingRepository.save(booking);
+    }
+
+    // Method to delete a booking
     public void deleteBooking(Long id) {
         Booking booking = bookingRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Booking not found"));
         bookingRepository.delete(booking);
     }
 
-    // Metode untuk melihat semua booking
-    public List<Booking> getAllBookings() {
-        return bookingRepository.findAll();
-    }
+    // Method to get available rooms on a specific date
+    public List<Room> getAvailableRooms(LocalDateTime date) {
+        List<Booking> bookingsOnDate = bookingRepository.findByStartTimeBetween(
+                date.toLocalDate().atStartOfDay(),
+                date.toLocalDate().atTime(23, 59)
+        );
 
-    // Metode untuk melihat semua booking berdasarkan pengguna
-    public List<Booking> getBookingsByUser(String bookedBy) {
-        return bookingRepository.findByBookedBy(bookedBy);
-    }
+        List<Long> bookedRoomIds = bookingsOnDate.stream()
+                .filter(Booking::isAcc) // Only consider approved bookings
+                .map(booking -> booking.getRoom().getId())
+                .collect(Collectors.toList());
 
-    // Metode untuk mendapatkan semua booking berdasarkan ruangan
-    public List<Booking> getBookingsByRoom(Long roomId) {
-        return bookingRepository.findByRoomId(roomId);
-    }
-
-    // Metode untuk mendapatkan booking pada periode waktu tertentu
-    public List<Booking> getBookingsWithinPeriod(LocalDateTime start, LocalDateTime end) {
-        return bookingRepository.findByStartTimeAfterAndEndTimeBefore(start, end);
-    }
-
-    // Metode untuk mendapatkan booking pada tanggal tertentu
-    public List<Booking> getBookingsForDate(LocalDateTime startOfDay, LocalDateTime endOfDay) {
-        return bookingRepository.findByStartTimeBetween(startOfDay, endOfDay);
+        return roomRepository.findAll().stream()
+                .filter(room -> room.isAvailable()) // Check if the room is available
+                .filter(room -> !bookedRoomIds.contains(room.getId())) // Check if the room is not booked
+                .collect(Collectors.toList());
     }
 }

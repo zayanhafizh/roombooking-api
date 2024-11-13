@@ -1,10 +1,10 @@
 package com.polstat.roombooking.controller;
 
 import com.polstat.roombooking.dto.BookingDTO;
+import com.polstat.roombooking.dto.BookingResponseDTO;
 import com.polstat.roombooking.entity.Booking;
 import com.polstat.roombooking.entity.Room;
 import com.polstat.roombooking.entity.User;
-import com.polstat.roombooking.repository.RoomRepository;
 import com.polstat.roombooking.service.BookingService;
 import com.polstat.roombooking.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/bookings")
@@ -26,27 +27,66 @@ public class BookingController {
     @Autowired
     private UserRepository userRepository;
 
-    @Autowired
-    private RoomRepository roomRepository;
+    @GetMapping("/all")
+    @PreAuthorize("hasAnyAuthority('ADMIN','SUPERADMIN')")
+    public ResponseEntity<List<BookingResponseDTO>> getAllBookings() {
+        List<Booking> bookings = bookingService.getAllBookings();
 
+        // Konversi dari Booking ke BookingResponseDTO
+        List<BookingResponseDTO> bookingResponseDTOs = bookings.stream()
+                .map(booking -> {
+                    String nama = booking.getUser().getIdentity() != null ? booking.getUser().getIdentity().getNama() : "Unknown";
+                    String nim = booking.getUser().getIdentity() != null ? booking.getUser().getIdentity().getNim() : "Unknown";
+                    String kelas = booking.getUser().getIdentity() != null ? booking.getUser().getIdentity().getKelas() : "Unknown";
+
+                    return new BookingResponseDTO(
+                            booking.getRoom().getName(),
+                            booking.getStartTime(),
+                            booking.getEndTime(),
+                            booking.getUser().getEmail(),
+                            nama,
+                            nim,
+                            kelas
+                    );
+                })
+                .collect(Collectors.toList());
+
+        return ResponseEntity.ok(bookingResponseDTOs);
+    }
+
+    // Endpoint to create a new booking
     @PostMapping
     @PreAuthorize("hasAnyAuthority('USER','ADMIN','SUPERADMIN')")
     public ResponseEntity<Booking> createBooking(@RequestBody BookingDTO bookingDTO, Authentication authentication) {
         String userEmail = authentication.getName();
         User user = userRepository.findByEmail(userEmail)
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
+
         Booking booking = bookingService.createBooking(bookingDTO, user);
         return ResponseEntity.ok(booking);
     }
 
+    // Endpoint to update an existing booking
     @PatchMapping("/{id}")
     @PreAuthorize("hasAnyAuthority('ADMIN','SUPERADMIN')")
-    public ResponseEntity<Booking> updateBooking(@PathVariable Long id, @RequestBody BookingDTO bookingDTO) {
-        System.out.println("Access granted to updateBooking with role ADMIN or SUPERADMIN");
-        Booking updatedBooking = bookingService.updateBooking(id, bookingDTO);
+    public ResponseEntity<Booking> updateBooking(@PathVariable Long id, @RequestBody BookingDTO bookingDTO, Authentication authentication) {
+        String userEmail = authentication.getName();
+        User user = userRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+
+        Booking updatedBooking = bookingService.updateBooking(id, bookingDTO, user);
         return ResponseEntity.ok(updatedBooking);
     }
 
+    // Endpoint to approve a booking
+    @PatchMapping("/approve/{id}")
+    @PreAuthorize("hasAuthority('ADMIN') or hasAuthority('SUPERADMIN')")
+    public ResponseEntity<String> approveBooking(@PathVariable Long id) {
+        bookingService.approveBooking(id);
+        return ResponseEntity.ok("Booking approved successfully");
+    }
+
+    // Endpoint to delete a booking
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAnyAuthority('ADMIN','SUPERADMIN')")
     public ResponseEntity<Void> deleteBooking(@PathVariable Long id) {
@@ -54,46 +94,12 @@ public class BookingController {
         return ResponseEntity.noContent().build();
     }
 
-    @GetMapping
+    // Endpoint to get available rooms on a specific date
+    @GetMapping("/available-rooms")
     @PreAuthorize("hasAnyAuthority('USER','ADMIN','SUPERADMIN')")
-    public ResponseEntity<List<Booking>> getAllBookings() {
-        List<Booking> bookings = bookingService.getAllBookings();
-        return ResponseEntity.ok(bookings);
-    }
-
-    @GetMapping("/user")
-    @PreAuthorize("hasAnyAuthority('USER','ADMIN','SUPERADMIN')")
-    public ResponseEntity<List<Booking>> getBookingsByUser(Authentication authentication) {
-        String userEmail = authentication.getName();
-        List<Booking> bookings = bookingService.getBookingsByUser(userEmail);
-        return ResponseEntity.ok(bookings);
-    }
-
-    // Ubah endpoint untuk menerima roomName sebagai parameter
-    @GetMapping("/room/{roomName}")
-    @PreAuthorize("hasAnyAuthority('USER','ADMIN','SUPERADMIN')")
-    public ResponseEntity<List<Booking>> getBookingsByRoom(@PathVariable String roomName) {
-        Room room = roomRepository.findByName(roomName)
-                .orElseThrow(() -> new IllegalArgumentException("Room not found"));
-        List<Booking> bookings = bookingService.getBookingsByRoom(room.getId()); // gunakan ID ruangan
-        return ResponseEntity.ok(bookings);
-    }
-
-    @GetMapping("/period")
-    @PreAuthorize("hasAnyAuthority('USER','ADMIN','SUPERADMIN')")
-    public ResponseEntity<List<Booking>> getBookingsWithinPeriod(
-            @RequestParam LocalDateTime start, @RequestParam LocalDateTime end) {
-        List<Booking> bookings = bookingService.getBookingsWithinPeriod(start, end);
-        return ResponseEntity.ok(bookings);
-    }
-
-    @GetMapping("/date")
-    @PreAuthorize("hasAnyAuthority('USER','ADMIN','SUPERADMIN')")
-    public ResponseEntity<List<Booking>> getBookingsForDate(
-            @RequestParam LocalDateTime date) {
-        LocalDateTime startOfDay = date.withHour(0).withMinute(0).withSecond(0);
-        LocalDateTime endOfDay = date.withHour(23).withMinute(59).withSecond(59);
-        List<Booking> bookings = bookingService.getBookingsForDate(startOfDay, endOfDay);
-        return ResponseEntity.ok(bookings);
+    public ResponseEntity<List<Room>> getAvailableRooms(@RequestParam String date) {
+        LocalDateTime dateTime = LocalDateTime.parse(date);
+        List<Room> availableRooms = bookingService.getAvailableRooms(dateTime);
+        return ResponseEntity.ok(availableRooms);
     }
 }
