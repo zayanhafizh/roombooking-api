@@ -3,6 +3,7 @@ package com.polstat.roombooking.dto;
 import java.time.LocalDateTime;
 
 public class BookingResponseDTO {
+    private Long bookingId;
     private String roomName;
     private LocalDateTime startTime;
     private LocalDateTime endTime;
@@ -13,8 +14,9 @@ public class BookingResponseDTO {
     private boolean isAcc;
 
     // Constructor
-    public BookingResponseDTO(String roomName, LocalDateTime startTime, LocalDateTime endTime,
+    public BookingResponseDTO(Long bookingId,String roomName, LocalDateTime startTime, LocalDateTime endTime,
                               String userEmail, String nama, String nim, String kelas,boolean isAcc) {
+        this.bookingId = bookingId;
         this.roomName = roomName;
         this.startTime = startTime;
         this.endTime = endTime;
@@ -88,5 +90,14 @@ public class BookingResponseDTO {
 
     public void setAcc(boolean isAcc) {
         this.isAcc = isAcc;
+    }
+
+    // Getters and Setters
+    public Long getId() {
+        return bookingId;
+    }
+
+    public void setId(Long id) {
+        this.bookingId = bookingId;
     }
 }

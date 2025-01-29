@@ -49,6 +49,7 @@ public class BookingController {
                     String kelas = booking.getUser().getIdentity() != null ? booking.getUser().getIdentity().getKelas() : "Unknown";
 
                     return new BookingResponseDTO(
+                            booking.getId(),
                             booking.getRoom().getName(),
                             booking.getStartTime(),
                             booking.getEndTime(),
@@ -72,13 +73,27 @@ public class BookingController {
     })
     @PostMapping
     @PreAuthorize("hasAnyAuthority('USER','ADMIN','SUPERADMIN')")
-    public ResponseEntity<Booking> createBooking(@RequestBody BookingDTO bookingDTO, Authentication authentication) {
+    public ResponseEntity<BookingResponseDTO> createBooking(@RequestBody BookingDTO bookingDTO, Authentication authentication) {
         String userEmail = authentication.getName();
         User user = userRepository.findByEmail(userEmail)
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
 
         Booking booking = bookingService.createBooking(bookingDTO, user);
-        return ResponseEntity.ok(booking);
+
+        // Konversi Booking entity ke BookingResponseDTO
+        BookingResponseDTO response = new BookingResponseDTO(
+                booking.getId(),
+                booking.getRoom().getName(),
+                booking.getStartTime(),
+                booking.getEndTime(),
+                booking.getUser().getEmail(),  // Hanya kirim email, bukan seluruh user object
+                booking.getUser().getIdentity() != null ? booking.getUser().getIdentity().getNama() : "Unknown",
+                booking.getUser().getIdentity() != null ? booking.getUser().getIdentity().getNim() : "Unknown",
+                booking.getUser().getIdentity() != null ? booking.getUser().getIdentity().getKelas() : "Unknown",
+                booking.isAcc()
+        );
+
+        return ResponseEntity.ok(response);
     }
 
     @Operation(summary = "Get bookings created by the authenticated user")
@@ -102,6 +117,7 @@ public class BookingController {
                     String kelas = booking.getUser().getIdentity() != null ? booking.getUser().getIdentity().getKelas() : "Unknown";
 
                     return new BookingResponseDTO(
+                            booking.getId(),
                             booking.getRoom().getName(),
                             booking.getStartTime(),
                             booking.getEndTime(),

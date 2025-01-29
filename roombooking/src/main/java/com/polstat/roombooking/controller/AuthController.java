@@ -13,8 +13,11 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -49,38 +52,48 @@ public class AuthController {
             @ApiResponse(responseCode = "400", description = "Invalid data", content = @Content)
     })
     @PostMapping("/register")
-    public Map<String, String> register(@RequestBody Map<String, String> registrationRequest) {
+    public ResponseEntity<Map<String, Object>> register(@RequestBody Map<String, String> registrationRequest) {
         String email = registrationRequest.get("email");
         String password = registrationRequest.get("password");
 
-        if (email == null || password == null) {
-            throw new IllegalArgumentException("Email and password must not be null");
+        try {
+            if (email == null || password == null) {
+                throw new IllegalArgumentException("Email and password must not be null");
+            }
+
+            // Validasi domain email
+            if (!email.endsWith("@stis.ac.id")) {
+                throw new IllegalArgumentException("Email must be stis email");
+            }
+
+            if (userRepository.findByEmail(email).isPresent()) {
+                throw new IllegalArgumentException("Email already registered");
+            }
+
+            String encodedPassword = passwordEncoder.encode(password);
+            Role userRole = roleRepository.findByName(RoleType.USER)
+                    .orElseThrow(() -> new IllegalArgumentException("Role USER not found"));
+
+            User user = new User();
+            user.setEmail(email);
+            user.setPassword(encodedPassword);
+            user.setRole(userRole);
+
+            userRepository.save(user);
+
+            // Success response
+            Map<String, Object> response = new HashMap<>();
+            response.put("message", "User registered successfully");
+            return ResponseEntity.ok(response);
+
+        } catch (IllegalArgumentException ex) {
+            // Handle errors and return a response with the error message
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("error", ex.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
         }
-
-        // Validasi domain email
-        if (!email.endsWith("@stis.ac.id")) {
-            throw new IllegalArgumentException("Email must be stis email");
-        }
-
-        if (userRepository.findByEmail(email).isPresent()) {
-            throw new IllegalArgumentException("Email already registered");
-        }
-
-        String encodedPassword = passwordEncoder.encode(password);
-        Role userRole = roleRepository.findByName(RoleType.USER)
-                .orElseThrow(() -> new IllegalArgumentException("Role USER not found"));
-
-        User user = new User();
-        user.setEmail(email);
-        user.setPassword(encodedPassword);
-        user.setRole(userRole);
-
-        userRepository.save(user);
-
-        Map<String, String> response = new HashMap<>();
-        response.put("message", "User registered successfully");
-        return response;
     }
+
 
     @Operation(summary = "Login a user and get a JWT token")
     @ApiResponses(value = {
@@ -89,25 +102,42 @@ public class AuthController {
             @ApiResponse(responseCode = "400", description = "Invalid credentials", content = @Content)
     })
     @PostMapping("/login")
-    public Map<String, Object> login(@RequestBody Map<String, String> loginRequest) {
+    public ResponseEntity<Map<String, Object>> login(@RequestBody Map<String, String> loginRequest) {
         String email = loginRequest.get("email");
         String password = loginRequest.get("password");
 
-        authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(email, password)
-        );
+        try {
+            // Authenticate the user
+            authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(email, password)
+            );
 
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+            // Find user in the database
+            User user = userRepository.findByEmail(email)
+                    .orElseThrow(() -> new IllegalArgumentException("User not found"));
 
-        String token = jwtUtil.generateToken(email, user.getRole().getName().name());
+            // Generate JWT token
+            String token = jwtUtil.generateToken(email, user.getRole().getName().name());
 
-        Map<String, Object> response = new HashMap<>();
-        response.put("token", token);
-        response.put("email", user.getEmail());
-        response.put("role", user.getRole().getName());
+            // Create response
+            Map<String, Object> response = new HashMap<>();
+            response.put("token", token);
+            response.put("email", user.getEmail());
+            response.put("role", user.getRole().getName());
 
-        return response;
+            return ResponseEntity.ok(response);
+
+        } catch (BadCredentialsException ex) {
+            // Handle invalid credentials
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("error", "Invalid email or password");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse);
+        } catch (IllegalArgumentException ex) {
+            // Handle user not found
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("error", ex.getMessage());
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
+        }
     }
 
     @Operation(summary = "Get user profile")
