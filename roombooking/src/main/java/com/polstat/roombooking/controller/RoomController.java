@@ -12,6 +12,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/rooms")
 public class RoomController {
@@ -44,5 +46,17 @@ public class RoomController {
     public ResponseEntity<Room> updateRoom(@PathVariable Long id, @RequestBody Room updatedRoomDetails) {
         Room updatedRoom = roomService.updateRoom(id, updatedRoomDetails);
         return ResponseEntity.ok(updatedRoom);
+    }
+
+    @Operation(summary = "Get all rooms")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Rooms fetched successfully",
+                    content = @Content(mediaType = "application/json", schema = @Schema(implementation = Room.class))),
+            @ApiResponse(responseCode = "400", description = "Invalid input data", content = @Content)
+    })
+    @GetMapping
+    public ResponseEntity<List<Room>> getAllRooms() {
+        List<Room> rooms = roomService.getAllRooms();
+        return ResponseEntity.ok(rooms);
     }
 }

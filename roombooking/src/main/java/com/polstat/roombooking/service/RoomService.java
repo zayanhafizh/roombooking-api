@@ -5,6 +5,8 @@ import com.polstat.roombooking.repository.RoomRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
+
 @Service
 public class RoomService {
 
@@ -35,5 +37,9 @@ public class RoomService {
         existingRoom.setAvailable(updatedRoomDetails.isAvailable());
 
         return roomRepository.save(existingRoom);
+    }
+
+    public List<Room> getAllRooms() {
+        return roomRepository.findAll();
     }
 }

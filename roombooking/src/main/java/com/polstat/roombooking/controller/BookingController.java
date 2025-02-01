@@ -169,7 +169,7 @@ public class BookingController {
             @ApiResponse(responseCode = "404", description = "Booking not found", content = @Content)
     })
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAnyAuthority('ADMIN','SUPERADMIN')")
+    @PreAuthorize("hasAnyAuthority('ADMIN','SUPERADMIN','USER')")
     public ResponseEntity<Void> deleteBooking(@PathVariable Long id) {
         bookingService.deleteBooking(id);
         return ResponseEntity.noContent().build();

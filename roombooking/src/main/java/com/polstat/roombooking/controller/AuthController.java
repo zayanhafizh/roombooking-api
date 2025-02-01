@@ -5,6 +5,7 @@ import com.polstat.roombooking.entity.Identity;
 import com.polstat.roombooking.entity.Role;
 import com.polstat.roombooking.entity.RoleType;
 import com.polstat.roombooking.entity.User;
+import com.polstat.roombooking.repository.IdentityRepository;
 import com.polstat.roombooking.repository.RoleRepository;
 import com.polstat.roombooking.repository.UserRepository;
 import io.swagger.v3.oas.annotations.Operation;
@@ -32,6 +33,10 @@ public class AuthController {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private IdentityRepository identityRepository;
+
 
     @Autowired
     private RoleRepository roleRepository;
@@ -191,6 +196,10 @@ public class AuthController {
         identity.setNama(profileRequest.get("nama"));
         identity.setNim(profileRequest.get("nim"));
         identity.setKelas(profileRequest.get("kelas"));
+
+        // Simpan Identity terlebih dahulu jika belum tersimpan
+        identity = identityRepository.save(identity);
+        user.setIdentity(identity);
 
         userRepository.save(user);
 
